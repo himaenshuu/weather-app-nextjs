@@ -9,24 +9,30 @@ import { useState } from "react";
 import axios from "axios";
 import { loadingCityAtom, placeAtom } from "@/app/atom";
 import { useAtom } from "jotai";
+import DarkModeToggle from './DarkModeToggle'
+import { toast } from 'react-hot-toast'
 
-type Props = { location?: string };
+interface NavbarProps {
+  location?: string;
+  onSearch?: (city: string) => void;
+  recentSearches?: string[];
+}
 
 const API_KEY = process.env.NEXT_PUBLIC_WEATHER_KEY;
 
-export default function Navbar({ location }: Props) {
+export default function Navbar({ location, onSearch, recentSearches = [] }: NavbarProps) {
   const [city, setCity] = useState("");
   const [error, setError] = useState("");
-  //
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [place, setPlace] = useAtom(placeAtom);
   const [_, setLoadingCity] = useAtom(loadingCityAtom);
 
-  async function handleInputChang(value: string) {
+  async function handleInputChange(value: string) {
     setCity(value);
     if (value.length >= 3) {
       try {
+        setLoadingCity(true);
         const response = await axios.get(
           `https://api.openweathermap.org/data/2.5/find?q=${value}&appid=${API_KEY}`
         );
@@ -38,6 +44,9 @@ export default function Navbar({ location }: Props) {
       } catch (error) {
         setSuggestions([]);
         setShowSuggestions(false);
+        toast.error('Failed to fetch location suggestions');
+      } finally {
+        setLoadingCity(false);
       }
     } else {
       setSuggestions([]);
@@ -48,104 +57,153 @@ export default function Navbar({ location }: Props) {
   function handleSuggestionClick(value: string) {
     setCity(value);
     setShowSuggestions(false);
+    handleSearch(value);
   }
 
-  function handleSubmiSearch(e: React.FormEvent<HTMLFormElement>) {
+  function handleSearch(searchCity: string = city) {
     setLoadingCity(true);
-    e.preventDefault();
-    if (suggestions.length == 0) {
+    if (suggestions.length === 0 && searchCity.length > 0) {
       setError("Location not found");
       setLoadingCity(false);
     } else {
       setError("");
       setTimeout(() => {
         setLoadingCity(false);
-        setPlace(city);
+        setPlace(searchCity);
+        onSearch?.(searchCity);
         setShowSuggestions(false);
       }, 500);
     }
   }
 
-  function handleCurrentLocation() {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(async (postiion) => {
-        const { latitude, longitude } = postiion.coords;
-        try {
-          setLoadingCity(true);
-          const response = await axios.get(
-            `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${API_KEY}`
-          );
-          setTimeout(() => {
-            setLoadingCity(false);
-            setPlace(response.data.name);
-          }, 500);
-        } catch (error) {
-          setLoadingCity(false);
-        }
+  async function handleCurrentLocation() {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser');
+      return;
+    }
+
+    try {
+      setLoadingCity(true);
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject);
       });
+
+      const { latitude, longitude } = position.coords;
+      const response = await axios.get(
+        `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${API_KEY}`
+      );
+
+      setPlace(response.data.name);
+      onSearch?.(response.data.name);
+      toast.success(`Location updated to ${response.data.name}`);
+    } catch (error) {
+      toast.error('Failed to get your current location');
+    } finally {
+      setLoadingCity(false);
     }
   }
+
   return (
     <>
-      <nav className="shadow-sm  sticky top-0 left-0 z-50 bg-white">
-        <div className="h-[80px]     w-full    flex   justify-between items-center  max-w-7xl px-3 mx-auto">
-          <p className="flex items-center justify-center gap-2  ">
-            <h2 className="text-gray-500 text-3xl">Weather</h2>
-            <MdWbSunny className="text-3xl mt-1 text-yellow-300" />
-          </p>
-          {/*  */}
-          <section className="flex gap-2 items-center">
-            <MdMyLocation
-              title="Your Current Location"
-              onClick={handleCurrentLocation}
-              className="text-2xl  text-gray-400 hover:opacity-80 cursor-pointer"
-            />
-            <MdOutlineLocationOn className="text-3xl" />
-            <p className="text-slate-900/80 text-sm"> {location} </p>
-            <div className="relative hidden md:flex">
-              {/* SearchBox */}
-
-              <SearchBox
-                value={city}
-                onSubmit={handleSubmiSearch}
-                onChange={(e) => handleInputChang(e.target.value)}
-              />
-              <SuggetionBox
-                {...{
-                  showSuggestions,
-                  suggestions,
-                  handleSuggestionClick,
-                  error
-                }}
-              />
+      <nav className="shadow-sm sticky top-0 left-0 z-50 bg-white dark:bg-gray-900 dark:text-white">
+        <div className="h-[80px] w-full flex justify-between items-center max-w-7xl px-3 mx-auto">
+          {/* Left side - Weather title and location */}
+          <div className="flex items-center justify-center gap-2">
+            <h2 className="text-gray-500 text-3xl dark:text-gray-300">Weather</h2>
+            <div className="flex items-center justify-center gap-1">
+              <p className="text-slate-900/80 text-sm dark:text-gray-300">
+                {location}
+              </p>
             </div>
-          </section>
+          </div>
+
+          {/* Right side - Search section, location buttons, and dark mode toggle */}
+          <div className="flex items-center gap-4">
+            {/* Dark mode toggle */}
+            <DarkModeToggle />
+
+            {/* Search and location section */}
+            <div className="flex items-center gap-2">
+              <div className="relative hidden md:flex">
+                <SearchBox
+                  value={city}
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSearch();
+                  }}
+                  onChange={(e) => handleInputChange(e.target.value)}
+                  recentSearches={recentSearches}
+                  onRecentSearchClick={handleSuggestionClick}
+                />
+                {((showSuggestions && suggestions.length > 0) || error) && (
+                  <SuggestionBox
+                    {...{
+                      showSuggestions,
+                      suggestions,
+                      handleSuggestionClick,
+                      error
+                    }}
+                  />
+                )}
+              </div>
+
+              {/* Location buttons with improved visibility */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCurrentLocation}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full
+                           transition-all duration-200 group"
+                  title="Your Current Location"
+                >
+                  <MdMyLocation
+                    className="text-2xl text-gray-500 dark:text-gray-400
+                             group-hover:text-blue-500 dark:group-hover:text-blue-400
+                             transition-colors duration-200
+                             drop-shadow-sm dark:drop-shadow-[0_0_2px_rgba(255,255,255,0.3)]"
+                  />
+                </button>
+                <div className="p-2">
+                  <MdOutlineLocationOn
+                    className="text-2xl text-gray-500 dark:text-gray-400
+                             drop-shadow-sm dark:drop-shadow-[0_0_2px_rgba(255,255,255,0.3)]"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </nav>
-      <section className="flex   max-w-7xl px-3 md:hidden ">
-        <div className="relative ">
-          {/* SearchBox */}
 
+      {/* Mobile search box */}
+      <section className="flex max-w-7xl px-3 md:hidden">
+        <div className="relative w-full">
           <SearchBox
             value={city}
-            onSubmit={handleSubmiSearch}
-            onChange={(e) => handleInputChang(e.target.value)}
-          />
-          <SuggetionBox
-            {...{
-              showSuggestions,
-              suggestions,
-              handleSuggestionClick,
-              error
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSearch();
             }}
+            onChange={(e) => handleInputChange(e.target.value)}
+            recentSearches={recentSearches}
+            onRecentSearchClick={handleSuggestionClick}
           />
+          {((showSuggestions && suggestions.length > 0) || error) && (
+            <SuggestionBox
+              {...{
+                showSuggestions,
+                suggestions,
+                handleSuggestionClick,
+                error
+              }}
+            />
+          )}
         </div>
       </section>
     </>
   );
 }
 
-function SuggetionBox({
+function SuggestionBox({
   showSuggestions,
   suggestions,
   handleSuggestionClick,
@@ -157,23 +215,19 @@ function SuggetionBox({
   error: string;
 }) {
   return (
-    <>
-      {((showSuggestions && suggestions.length > 1) || error) && (
-        <ul className="mb-4 bg-white absolute border top-[44px] left-0 border-gray-300 rounded-md min-w-[200px]  flex flex-col gap-1 py-2 px-2">
-          {error && suggestions.length < 1 && (
-            <li className="text-red-500 p-1 "> {error}</li>
-          )}
-          {suggestions.map((item, i) => (
-            <li
-              key={i}
-              onClick={() => handleSuggestionClick(item)}
-              className="cursor-pointer p-1 rounded   hover:bg-gray-200"
-            >
-              {item}
-            </li>
-          ))}
-        </ul>
+    <div className="absolute top-[44px] left-0 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md min-w-[200px] w-full">
+      {error && suggestions.length < 1 && (
+        <p className="px-4 py-2 text-red-500">{error}</p>
       )}
-    </>
+      {suggestions.map((item, i) => (
+        <button
+          key={i}
+          onClick={() => handleSuggestionClick(item)}
+          className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700"
+        >
+          {item}
+        </button>
+      ))}
+    </div>
   );
 }

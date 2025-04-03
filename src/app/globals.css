@@ -2,3 +2,95 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Add these at the end of your globals.css file */
+.leaflet-container {
+    z-index: 1;
+    background-color: #f3f4f6;
+}
+
+.dark .leaflet-container {
+    background-color: #1f2937;
+}
+
+.leaflet-control-zoom {
+    border: none !important;
+    margin-right: 16px !important;
+    margin-top: 16px !important;
+}
+
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+    background-color: white !important;
+    color: #374151 !important;
+    width: 32px !important;
+    height: 32px !important;
+    line-height: 32px !important;
+    border-radius: 8px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+    transition: all 0.2s !important;
+}
+
+.dark .leaflet-control-zoom-in,
+.dark .leaflet-control-zoom-out {
+    background-color: #1f2937 !important;
+    color: #e5e7eb !important;
+}
+
+.leaflet-control-zoom-in:hover,
+.leaflet-control-zoom-out:hover {
+    background-color: #f3f4f6 !important;
+}
+
+.dark .leaflet-control-zoom-in:hover,
+.dark .leaflet-control-zoom-out:hover {
+    background-color: #374151 !important;
+}
+
+.leaflet-control-attribution {
+    background-color: rgba(255, 255, 255, 0.8) !important;
+    padding: 2px 8px !important;
+    border-radius: 4px !important;
+    font-size: 11px !important;
+}
+
+.dark .leaflet-control-attribution {
+    background-color: rgba(31, 41, 55, 0.8) !important;
+    color: #e5e7eb !important;
+}
+
+.dark .leaflet-control-attribution a {}
+
+.ol-control {
+    background: none;
+    padding: 0;
+}
+
+.ol-zoom {
+    top: 1rem;
+    right: 1rem;
+    left: auto;
+}
+
+.ol-zoom button {
+    background-color: white !important;
+    color: #374151 !important;
+    margin: 0.25rem !important;
+    width: 2rem !important;
+    height: 2rem !important;
+    border-radius: 0.5rem !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+    transition: all 0.2s !important;
+}
+
+.dark .ol-zoom button {
+    background-color: #1f2937 !important;
+    color: #e5e7eb !important;
+}
+
+.ol-zoom button:hover {
+    background-color: #f3f4f6 !important;
+}
+
+.dark .ol-zoom button:hover {
+    background-color: #374151 !important;
+}
